@@ -1,0 +1,15 @@
+# Prototipos locales (heredado del repositorio original, no se suben a GitHub)
+node_modules/
+
+# Archivos subidos por usuarios en tiempo de ejecución (comprobantes de Preinscribirse.html)
+backend/storage/comprobantes/*
+!backend/storage/comprobantes/.gitkeep
+
+# Configuración local que no debería compartirse (variables de entorno con credenciales reales)
+.env
+.env.local
+
+# Archivos de sistema / editores
+.DS_Store
+Thumbs.db
+*.swp

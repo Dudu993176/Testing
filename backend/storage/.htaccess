@@ -1,0 +1,14 @@
+# Esta carpeta contiene la lógica PHP (POO) del backend: config, modelos,
+# repositorios y servicios. Nunca debe ser accedida directamente por el
+# navegador; sólo los scripts de /api la incluyen del lado del servidor.
+#
+# Apache 2.4+ (XAMPP moderno / Debian con apache2):
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+
+# Apache 2.2 (compatibilidad):
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
