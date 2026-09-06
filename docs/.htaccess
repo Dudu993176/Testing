@@ -1,6 +1,6 @@
-# Esta carpeta contiene la lógica PHP (POO) del backend: config, modelos,
-# repositorios y servicios. Nunca debe ser accedida directamente por el
-# navegador; sólo los scripts de /api la incluyen del lado del servidor.
+# Esta carpeta contiene documentación interna (diagramas UML/ER, RFE y
+# entregas en Word/PDF). No forma parte del sitio público: se bloquea el
+# acceso directo por HTTP para no filtrar esos documentos por la URL.
 #
 # Apache 2.4+ (XAMPP moderno / Debian con apache2):
 <IfModule mod_authz_core.c>

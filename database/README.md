@@ -11,8 +11,16 @@ Importar en este orden (phpMyAdmin → Importar, o `mysql -u ... fadecode < arch
    `Borradores` (guardado de progreso), columna `archivo_comprobante`, claves
    únicas en `Usuarios` (email/cédula) e índices de apoyo para los listados
    del panel de administración.
+5. **05_correccion_historial_visitantes.sql** — Corrige un error real
+   detectado en la autorevisión final: `Historiales.id_usuario` quedó como
+   `NOT NULL` en el script 01, pero el registro de accesos anónimos
+   (`Visitante::registrarAcceso()`) necesita guardarlo en `NULL` (sólo llena
+   `id_visitante`), igual que ya permite `Sugerencias.id_usuario`. Sin este
+   script, cualquier acceso de un visitante sin cuenta rompía con "Column
+   'id_usuario' cannot be null". Ver sección "Errores detectados" del README
+   de la raíz para el detalle completo.
 
-Después de importar los 4 scripts, correr una vez:
+Después de importar los 5 scripts, correr una vez:
 
 ```bash
 php backend/scripts/rehash_seed_passwords.php
