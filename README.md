@@ -55,7 +55,8 @@ clases (`docs/diagramas/UML.drawio`) y el modelo de datos
 │   ├── 01_DDL_tablas_e_indices.sql
 │   ├── 02_Datos_prueba.sql
 │   ├── 03_RNE_y_triggers.sql
-│   └── 04_mejoras_backend.sql
+│   ├── 04_mejoras_backend.sql
+│   └── 05_correccion_historial_visitantes.sql          # Corrige un error real, ver sección 6
 │
 └── docs/                                                # UML, diagramas ER, documentos de requerimientos (Word/PDF)
     ├── diagramas/ (UML.drawio, UML.drawio.png, DiagramaMer/)
@@ -100,6 +101,8 @@ URL: sólo lo usan los scripts de `api/` con `require` del lado del servidor.
    2. `02_Datos_prueba.sql`
    3. `03_RNE_y_triggers.sql`
    4. `04_mejoras_backend.sql`
+   5. `05_correccion_historial_visitantes.sql` (corrige un error real detectado
+      en la revisión final, ver sección 6)
 5. Por defecto, `backend/src/config/config.php` ya apunta a los valores típicos
    de XAMPP (`host=127.0.0.1`, usuario `root`, sin contraseña, base `fadecode`).
    Si tu XAMPP usa otro usuario/contraseña, no hace falta editar el archivo:
@@ -127,7 +130,7 @@ FLUSH PRIVILEGES;
 SQL
 
 # Importar los scripts SQL en orden
-for f in 01_DDL_tablas_e_indices 02_Datos_prueba 03_RNE_y_triggers 04_mejoras_backend; do
+for f in 01_DDL_tablas_e_indices 02_Datos_prueba 03_RNE_y_triggers 04_mejoras_backend 05_correccion_historial_visitantes; do
   mysql -u fadecode_app -p fadecode < database/$f.sql
 done
 ```
@@ -244,8 +247,86 @@ backend/src/models/*.php   (entidades del UML: Usuario, Administrador, Alumno,
 
 ---
 
-## 5. Próximos pasos sugeridos
+## 5. Errores detectados
 
+Se pidió explícitamente **no modificar ningún archivo del frontend original**
+(`fadecode-dev`) al reorganizar el proyecto, así que los errores de esa parte
+quedan documentados acá (con archivo y línea) en vez de corregidos en el
+lugar. Los errores encontrados en el código *agregado* en este trabajo
+(backend, base de datos, `.htaccess`) sí se corrigieron, porque no forman
+parte de "el código original" que no había que tocar; también se listan.
+
+### 5.1 Errores en el frontend original (sin corregir, tal como se descargó)
+
+| # | Archivo(s) | Error | Por qué importa |
+|---|---|---|---|
+| 1 | `Anexo-BaltasarBrum.html:171`, `Anexo-TomasGomensoro.html:171` | `<script src="js/main.js">`: la carpeta `js/` no existe en el proyecto. El archivo real es `assets/javascript/main.js` (así lo usa correctamente la página hermana `Anexo-Polideportivo.html:295`). | El script nunca carga (404): cualquier comportamiento de `main.js` (menú, etc.) no funciona en esas dos páginas, en ningún sistema operativo. |
+| 2 | 19 páginas HTML (`index.html`, `Login-in.html`, `Registrarse.html`, `Sugerencias.html`, `Noticias.html`, `Eventos.html`, `Normativas.html`, `UbicacionUTU.html`, `Cuenta.html`, `Error.html`, `Preinscribirse.html`, `Laboratorio.html`, `Actividades-Polideportivo.html`, `Figuras-Polideportivo.html`, `Anexo-*.html` y todo `OfertasEducativas/*.html`) | Referencian `Iconos/Icon White/Facebook.png` (con "F" mayúscula), pero el archivo real en el repo se llama `facebook.png` (minúscula). | **Funciona en Windows/XAMPP** (sistema de archivos insensible a mayúsculas) pero **rompe en Apache sobre Debian** (Linux es sensible a mayúsculas/minúsculas): el ícono de Facebook da 404 en producción. Es el mismo tipo de bug que ya se había corregido para `registrarse.js`/`Auth.css` en la reorganización, pero no se detectó en este ícono. |
+| 3 | Las mismas 19 páginas del punto 2 | Referencian `Iconos/icon white/brand-whatsapp.PNG` (carpeta en minúscula), pero la carpeta real es `Iconos/Icon White/` (con mayúsculas). | Mismo problema que el punto 2: el ícono de WhatsApp del pie de página da 404 en Apache/Debian aunque se vea bien en XAMPP/Windows. |
+| 4 | `OfertasEducativas/Menu-de-Ofertas.html:118`, `OfertasEducativas/construccion-muebles-por-diseno.html` | Referencian `../Iconos/Ofertas/MueblesDiseño.png`, pero el archivo dentro de `Iconos/Ofertas/` quedó guardado como `MueblesDise#U00f1o.png` (la "ñ" se corrompió a texto literal "#U00f1" al comprimirse/descomprimirse el .zip original). | La imagen de la oferta "Construcción - Muebles por Diseño" nunca carga, en ningún sistema operativo (el nombre de archivo real no coincide con ninguna variante de mayúsculas/minúsculas). |
+| 5 | `Figuras-Polideportivo.html:70` | `<img src="Recursos Polideportivo/coordinador-ejecutivo.jpg" alt="Nombre pendiente">`: no existe ninguna carpeta `Recursos Polideportivo/` en el proyecto (sólo `Recursos UTU/`). | Imagen rota; el propio `alt="Nombre pendiente"` sugiere que era un placeholder que quedó sin completar en el diseño original. |
+
+**Recomendación de arreglo** (no aplicada, para no tocar el frontend
+original): renombrar los archivos de imagen a exactamente el nombre que
+usa el HTML (o viceversa, corregir el HTML) y cambiar `js/main.js` por
+`assets/javascript/main.js` en los dos anexos. Como referencia, ítems 2 y 3
+son el mismo patrón que ya se había corregido en `Login-in.js`/`auth.css`
+durante la reorganización — simplemente no se llegó a estos íconos.
+
+### 5.2 Errores/inconsistencias detectadas en el diagrama UML (`docs/diagramas/UML.drawio`)
+
+| # | Dónde | Error |
+|---|---|---|
+| 1 | Clase `Historial` | Modela `idUsuario: int` e `idVisitante: int` como si ambos fueran siempre obligatorios, pero el propio método `esAccesoAnonimo(): bool` sólo tiene sentido si uno de los dos puede faltar. El diagrama no indica esa opcionalidad/exclusión mutua — y esa ambigüedad es la causa raíz del error de base de datos corregido en la sección 5.3 (`Historiales.id_usuario` quedó `NOT NULL` en el script generado a partir del diagrama). |
+| 2 | Clases `Historial` y `Sugerencia` | Ninguna de las dos tiene una línea de asociación dibujada hacia `Visitante`, a pesar de que ambas tienen un atributo `idVisitante` y un método pensado explícitamente para el caso anónimo (`esAccesoAnonimo()`, `esAnonima()`). Las únicas conexiones dibujadas son `Sugerencia` → (compartimento de métodos de `Usuario`) y `Noticia` → (compartimento de métodos de `Administrador`). Falta la relación con `Visitante` en el propio dibujo. |
+| 3 | Conectores de `Sugerencia` y `Noticia` | Los conectores no terminan en el borde de la clase `Usuario`/`Administrador` sino **dentro del compartimento de métodos** (celda hija `...-4` de `Usuario` y `...-9` de `Administrador` en el XML), en vez de apuntar al contenedor de la clase. Es un defecto de dibujo/enganche del `.drawio` (las flechas se ven entrando a la mitad de la lista de métodos), no sólo un detalle estético: dificulta releer el diagrama para regenerar el modelo de datos. |
+| 4 | Clase `Alumno` | Sólo declara `cursoActual: string`. No incluye los campos que exigen los requerimientos (`RFE.pdf`, `03_RNE_y_triggers.sql`): `esMenor`, `autorizacionAdulto` (RFE-03) y `consentimientoImagen` (RFE-04). El diagrama quedó desactualizado respecto a los propios documentos de requerimientos del proyecto. |
+| 5 | Clases `Curso`, `Materia`, `Turno`, `Horario` | El diagrama las relaciona con líneas directas 1 a 1 (`Curso`→`OfertaEducativa`, `Curso`→`Materia`, `Turno`→`OfertaEducativa`, `Turno`→`Horario`), pero el modelo de datos real (`01_DDL_tablas_e_indices.sql`) necesita tablas intermedias muchos-a-muchos (`Contienen`, `Pertenecen`, `Incluyen`) que no aparecen como clases/asociaciones en el UML. El diagrama de clases no describe del todo el esquema relacional que finalmente hizo falta. |
+| 6 | Conector `NivelAcceso` → `Historial` | No corresponde a ninguna relación real: `Historiales` no tiene columna `id_nivel` ni el modelo `Historial` referencia `NivelAcceso`. Parece un conector mal enganchado al mover cajas en drawio (posiblemente destinado a `Usuario` → `Historial`, que ya existe por otro lado). |
+| 7 | Clase `FormularioInteres` | `cursoInteres` está modelado como `string` libre en vez de una referencia (`idOferta`/`idCurso`) a `OfertaEducativa`/`Curso`. Es coherente con cómo quedó la tabla real (`curso_lista_interes VARCHAR`), pero como diseño no está normalizado: nada impide guardar un curso que no existe, y no se puede hacer `JOIN` para saber cuántos interesados tiene cada oferta sin comparar strings. |
+
+### 5.3 Autorevisión del backend/BD agregado en este trabajo (errores encontrados y corregidos)
+
+Después de escribir el backend se releyó todo el código nuevo (se corrió
+`php -l` sobre los ~50 archivos PHP y `node --check` sobre los `.js` — ninguno
+tiene errores de sintaxis) y se contrastó cada tabla contra el repositorio y
+el modelo que la usa. Esto encontró:
+
+- **Bug real, corregido con `database/05_correccion_historial_visitantes.sql`**:
+  `Historiales.id_usuario` se creó como `int(11) NOT NULL` en
+  `01_DDL_tablas_e_indices.sql` (generado a partir del UML, ver ítem 5.2.1),
+  pero `Backend\Models\Visitante::registrarAcceso()` necesita insertar un
+  historial con `id_usuario = NULL` (sólo completa `id_visitante`) para
+  visitantes anónimos, igual que ya podía hacer `Sugerencias.id_usuario`
+  (ese sí era `NULL`able desde el script 01). Sin el script 05, cualquier
+  acceso de un visitante sin cuenta rompía con el error de MySQL *"Column
+  'id_usuario' cannot be null"*.
+- **Documentación copiada por error, corregida**: `database/.htaccess` y
+  `docs/.htaccess` tenían el mismo comentario de `backend/.htaccess`
+  ("Esta carpeta contiene la lógica PHP (POO) del backend..."), que no
+  describe lo que hay en esas dos carpetas (scripts SQL y documentación,
+  respectivamente). Las reglas de Apache (`Require all denied`) sí eran
+  correctas en los tres archivos; sólo se corrigió el texto del comentario.
+- **Endpoint sin usar desde la interfaz (no es un bug, pero quedó
+  incompleto)**: `GET /api/historial.php` existe y funciona, pero
+  `admin/panel.html`/`admin/admin.js` no tienen ninguna vista que lo
+  consuma — el administrador no tiene forma de ver la bitácora de accesos
+  desde el panel todavía. Se deja anotado en "Próximos pasos" (sección 7).
+- **Verificado sin errores**: las sentencias SQL de los 14 repositorios usan
+  parámetros con nombre (`PDO::prepare` + `execute([':param' => ...])`) en
+  el 100% de los casos — no se encontró ninguna concatenación de datos de
+  usuario dentro de una consulta. `Usuario::toArray()` nunca serializa
+  `pass_usuario` (el hash no se filtra en ninguna respuesta JSON). Las
+  contraseñas de prueba en texto plano de `02_Datos_prueba.sql` se
+  documentan explícitamente como tales (sección 3.3) y el backend las
+  compara sólo hasta que se corre `rehash_seed_passwords.php`.
+
+---
+
+## 6. Próximos pasos sugeridos
+
+- Agregar al panel de administración una vista que consuma
+  `GET /api/historial.php` (el endpoint ya existe; ver sección 5.3).
 - Sumar CRUD de administración para `Cursos`, `Materias`, `Turnos` y
   `Horarios` (los repositorios ya existen en `backend/src/repositories/`;
   falta sólo el controlador en `api/` y la vista en `admin/panel.html`).
@@ -253,3 +334,7 @@ backend/src/models/*.php   (entidades del UML: Usuario, Administrador, Alumno,
   única plantilla que consuma `GET /api/ofertas.php`.
 - Migrar los secretos (`DB_PASS`, claves de reCAPTCHA) a variables de
   entorno del servidor en vez de valores por defecto en `config.php`.
+- Corregir los errores del frontend original listados en la sección 5.1
+  (rutas de imágenes/script con mayúsculas/minúsculas distintas y el nombre
+  de archivo corrupto de `MueblesDiseño.png`), respetando que no se tocó
+  ese código en este trabajo a pedido explícito.
